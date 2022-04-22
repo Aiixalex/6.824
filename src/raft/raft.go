@@ -64,6 +64,13 @@ type Raft struct {
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
 
+	applyCh chan ApplyMsg
+	applyCond *sync.Cond
+	replicatorCond []*sync.Cond
+	state NodeState
+
+	currentTerm int
+	
 }
 
 // return currentTerm and whether this server
