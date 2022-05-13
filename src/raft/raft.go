@@ -51,6 +51,15 @@ type ApplyMsg struct {
 }
 
 //
+// raft server states
+//
+const (
+	STATE_FOLLOWER = iota
+	STATE_CANDIDATE
+	STATE_LEADER
+)
+
+//
 // A Go object implementing a single Raft peer.
 //
 type Raft struct {
@@ -67,11 +76,11 @@ type Raft struct {
 	applyCh        chan ApplyMsg
 	applyCond      *sync.Cond
 	replicatorCond []*sync.Cond
-	state          NodeState
+	state          int
 
 	currentTerm int
 	votedFor    int
-	logs        []Entry
+	// logs        []Entry
 
 	commitIndex int
 	lastApplied int
@@ -89,6 +98,8 @@ func (rf *Raft) GetState() (int, bool) {
 	var term int
 	var isleader bool
 	// Your code here (2A).
+	term = rf.currentTerm
+	isleader = (rf.state == Leader)
 	return term, isleader
 }
 
@@ -295,10 +306,15 @@ func (rf *Raft) ticker() {
 //
 func Make(peers []*labrpc.ClientEnd, me int,
 	persister *Persister, applyCh chan ApplyMsg) *Raft {
-	rf := &Raft{}
-	rf.peers = peers
-	rf.persister = persister
-	rf.me = me
+	rf := &Raft{
+		peers:       peers,
+		persister:   persister,
+		me:          me,
+		dead:        0,
+		applyCh:     applyCh,
+		currentTerm: 0,
+		votedFor:    -1,
+	}
 
 	// Your initialization code here (2A, 2B, 2C).
 
