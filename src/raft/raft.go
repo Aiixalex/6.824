@@ -54,9 +54,9 @@ type ApplyMsg struct {
 // raft server states
 //
 const (
-	STATE_FOLLOWER = iota
-	STATE_CANDIDATE
-	STATE_LEADER
+	FOLLOWER = iota
+	CANDIDATE
+	LEADER
 )
 
 //
@@ -99,7 +99,7 @@ func (rf *Raft) GetState() (int, bool) {
 	var isleader bool
 	// Your code here (2A).
 	term = rf.currentTerm
-	isleader = (rf.state == Leader)
+	isleader = (rf.state == LEADER)
 	return term, isleader
 }
 
@@ -200,6 +200,14 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		reply.VoteGranted = false
 	}
 
+	if args.Term > rf.currentTerm {
+		rf.state = FOLLOWER
+		rf.currentTerm = args.Term
+		rf.votedFor = -1
+	}
+
+	reply.Term = rf.currentTerm
+	reply.VoteGranted = 
 }
 
 //
@@ -314,6 +322,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		applyCh:     applyCh,
 		currentTerm: 0,
 		votedFor:    -1,
+		state:       FOLLOWER,
 	}
 
 	// Your initialization code here (2A, 2B, 2C).
