@@ -196,9 +196,6 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		reply.VoteGranted, args.Term = false, rf.currentTerm
 		return
 	}
-	if rf.votedFor != -1 && rf.votedFor != args.CandidateId {
-		reply.VoteGranted = false
-	}
 
 	if args.Term > rf.currentTerm {
 		rf.state = FOLLOWER
@@ -209,10 +206,23 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	reply.Term = rf.currentTerm
 	reply.VoteGranted = false
 
-	if (rf.votedFor == -1 || rf.votedFor == args.CandidateId) {
+	if rf.votedFor == -1 || rf.votedFor == args.CandidateId {
 		rf.votedFor = args.CandidateId
 		reply.VoteGranted = true
 	}
+}
+
+func (rf *Raft) logIsUpToDate(lastLogTerm int, lastLogIndex int) bool {
+	if len(rf.log) == 0 {
+		return true
+	}
+	if lastLogTerm > rf.log[len(rf.log)-1].Term {
+		return true
+	}
+	if lastLogTerm == rf.log[len(rf.log)-1].Term && lastLogIndex >= rf.log[len(rf.log)-1].Index {
+		return true
+	}
+	return false
 }
 
 //
