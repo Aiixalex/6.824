@@ -80,7 +80,7 @@ type Raft struct {
 
 	currentTerm int
 	votedFor    int
-	// logs        []Entry
+	logs        []Entry
 
 	commitIndex int
 	lastApplied int
