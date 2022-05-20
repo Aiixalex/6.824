@@ -213,13 +213,13 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 }
 
 func (rf *Raft) logIsUpToDate(lastLogTerm int, lastLogIndex int) bool {
-	if len(rf.log) == 0 {
+	if len(rf.logs) == 0 {
 		return true
 	}
-	if lastLogTerm > rf.log[len(rf.log)-1].Term {
+	if lastLogTerm > rf.logs[len(rf.logs)-1].Term {
 		return true
 	}
-	if lastLogTerm == rf.log[len(rf.log)-1].Term && lastLogIndex >= rf.log[len(rf.log)-1].Index {
+	if lastLogTerm == rf.logs[len(rf.logs)-1].Term && lastLogIndex >= rf.logs[len(rf.logs)-1].Index {
 		return true
 	}
 	return false
