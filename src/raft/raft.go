@@ -50,6 +50,11 @@ type ApplyMsg struct {
 	SnapshotIndex int
 }
 
+type LogEntry struct {
+	Term    int
+	Command interface{}
+}
+
 //
 // raft server states
 //
@@ -80,7 +85,7 @@ type Raft struct {
 
 	currentTerm int
 	votedFor    int
-	logs        []Entry
+	logs        []LogEntry
 
 	commitIndex int
 	lastApplied int
@@ -212,18 +217,18 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	}
 }
 
-func (rf *Raft) logIsUpToDate(lastLogTerm int, lastLogIndex int) bool {
-	if len(rf.logs) == 0 {
-		return true
-	}
-	if lastLogTerm > rf.logs[len(rf.logs)-1].Term {
-		return true
-	}
-	if lastLogTerm == rf.logs[len(rf.logs)-1].Term && lastLogIndex >= rf.logs[len(rf.logs)-1].Index {
-		return true
-	}
-	return false
-}
+// func (rf *Raft) logIsUpToDate(lastLogTerm int, lastLogIndex int) bool {
+// 	if len(rf.logs) == 0 {
+// 		return true
+// 	}
+// 	if lastLogTerm > rf.logs[len(rf.logs)-1].Term {
+// 		return true
+// 	}
+// 	if lastLogTerm == rf.logs[len(rf.logs)-1].Term && lastLogIndex >= rf.logs[len(rf.logs)-1].Index {
+// 		return true
+// 	}
+// 	return false
+// }
 
 //
 // example code to send a RequestVote RPC to a server.
