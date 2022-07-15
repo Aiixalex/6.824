@@ -19,6 +19,7 @@ package raft
 
 import (
 	//	"bytes"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -166,6 +167,14 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 
 }
 
+func GetRandomizedElectionTimeout() time.Duration {
+	return time.Duration(250 + rand.Intn(250)) * time.Millisecond
+}
+
+func GetHeartbeatTimeout() time.Duration {
+	return time.Duration(100) * time.Millisecond
+}
+
 //
 // example RequestVote RPC arguments structure.
 // field names must start with capital letters!
@@ -214,6 +223,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	if rf.votedFor == -1 || rf.votedFor == args.CandidateId {
 		rf.votedFor = args.CandidateId
 		reply.VoteGranted = true
+		rf.electionTimer.Reset(GetRandomizedElectionTimeout())
 	}
 }
 
@@ -313,11 +323,21 @@ func (rf *Raft) killed() bool {
 // heartsbeats recently.
 func (rf *Raft) ticker() {
 	for rf.killed() == false {
-
 		// Your code here to check if a leader election should
 		// be started and to randomize sleeping time using
 		// time.Sleep().
+		select {
+			case <-rf.electionTimer.C:
+				rf.mu.Lock()
+				rf.state = CANDIDATE
+				rf.currentTerm++
+				rf.votedFor = rf.me
+				rf.electionTimer.Reset(GetRandomizedElectionTimeout())
+				rf.mu.Unlock()
+			case <-rf.heartbeatTimer.C:
+				rf.mu.Lock()
 
+		}
 	}
 }
 
@@ -335,14 +355,17 @@ func (rf *Raft) ticker() {
 func Make(peers []*labrpc.ClientEnd, me int,
 	persister *Persister, applyCh chan ApplyMsg) *Raft {
 	rf := &Raft{
-		peers:       peers,
-		persister:   persister,
-		me:          me,
-		dead:        0,
-		applyCh:     applyCh,
-		currentTerm: 0,
-		votedFor:    -1,
-		state:       FOLLOWER,
+		peers:          peers,
+		persister:      persister,
+		me:             me,
+		dead:           0,
+		applyCh:        applyCh,
+		currentTerm:    0,
+		votedFor:       -1,
+		state:          FOLLOWER,
+
+		electionTimer:  time.NewTimer(GetRandomizedElectionTimeout()),
+		heartbeatTimer: time.NewTimer(GetHeartbeatTimeout()),
 	}
 
 	// Your initialization code here (2A, 2B, 2C).
