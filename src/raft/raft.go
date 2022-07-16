@@ -167,12 +167,19 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 
 }
 
+// random election timeout
 func GetRandomizedElectionTimeout() time.Duration {
 	return time.Duration(250 + rand.Intn(250)) * time.Millisecond
 }
 
+// return heartbeat interval
 func GetHeartbeatTimeout() time.Duration {
 	return time.Duration(100) * time.Millisecond
+}
+
+// broadcast heartbeat to all other servers
+func (rf *Raft) BroadcastHeartbeat() {
+	
 }
 
 //
@@ -181,10 +188,10 @@ func GetHeartbeatTimeout() time.Duration {
 //
 type RequestVoteArgs struct {
 	// Your data here (2A, 2B).
-	Term         int
-	CandidateId  int
-	LastLogIndex int
-	LastLogTerm  int
+	term         int
+	candidateId  int
+	lastLogIndex int
+	lastLogTerm  int
 }
 
 //
@@ -193,8 +200,8 @@ type RequestVoteArgs struct {
 //
 type RequestVoteReply struct {
 	// Your data here (2A).
-	Term        int
-	VoteGranted bool
+	term        int
+	voteGranted bool
 }
 
 //
@@ -206,23 +213,23 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	defer rf.mu.Unlock()
 	defer rf.persist()
 
-	if args.Term < rf.currentTerm {
-		reply.VoteGranted, args.Term = false, rf.currentTerm
+	if args.term < rf.currentTerm {
+		reply.voteGranted, args.term = false, rf.currentTerm
 		return
 	}
 
-	if args.Term > rf.currentTerm {
+	if args.term > rf.currentTerm {
 		rf.state = FOLLOWER
-		rf.currentTerm = args.Term
+		rf.currentTerm = args.term
 		rf.votedFor = -1
 	}
 
-	reply.Term = rf.currentTerm
-	reply.VoteGranted = false
+	reply.term = rf.currentTerm
+	reply.voteGranted = false
 
-	if rf.votedFor == -1 || rf.votedFor == args.CandidateId {
-		rf.votedFor = args.CandidateId
-		reply.VoteGranted = true
+	if rf.votedFor == -1 || rf.votedFor == args.candidateId {
+		rf.votedFor = args.candidateId
+		reply.voteGranted = true
 		rf.electionTimer.Reset(GetRandomizedElectionTimeout())
 	}
 }
@@ -272,6 +279,57 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
 	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
 	return ok
+}
+
+type AppendEntriesArgs struct {
+	term     int
+	leaderId int
+	prevLogIndex int
+	prevLogTerm int
+	entries []LogEntry
+	leaderCommit int
+}
+
+type AppendEntriesReply struct {
+	Term int
+	Success bool
+}
+
+func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	defer rf.persist()
+
+	if args.term < rf.currentTerm {
+		reply.Term = rf.currentTerm
+		reply.Success = false
+		return
+	}
+
+	if args.term > rf.currentTerm {
+		rf.currentTerm = args.term
+		rf.votedFor = -1
+	}
+
+	rf.state = FOLLOWER
+	rf.electionTimer.Reset(GetRandomizedElectionTimeout())
+
+	if args.prevLogIndex > len(rf.logs) - 1 || rf.logs[args.prevLogIndex].Term != args.prevLogTerm {
+		reply.Success = false
+		
+	}
+
+	if args.leaderCommit > rf.commitIndex {
+
+}
+
+//
+// If election timeout is reached, start a new election.
+//
+func (rf *Raft) StartNewElection() {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
 }
 
 //
@@ -333,10 +391,15 @@ func (rf *Raft) ticker() {
 				rf.currentTerm++
 				rf.votedFor = rf.me
 				rf.electionTimer.Reset(GetRandomizedElectionTimeout())
+				rf.StartNewElection()
 				rf.mu.Unlock()
 			case <-rf.heartbeatTimer.C:
 				rf.mu.Lock()
-
+				if (rf.state == LEADER) {
+					rf.BroadcastHeartbeat()
+					rf.heartbeatTimer.Reset(GetHeartbeatTimeout())
+				}
+				rf.mu.Unlock()
 		}
 	}
 }
